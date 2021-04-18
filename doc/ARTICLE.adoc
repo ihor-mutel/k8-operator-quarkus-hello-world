@@ -1,4 +1,4 @@
-= Kubernetes Operator with Java and Quarkus.
+= Kubernetes Operator with Java and Quarkus
 
 ===== TL;DR
 
@@ -581,6 +581,7 @@ spec:
 * security
 * the possibilites
 
+https://github.com/web1991t/k8-operator-quarkus-hello-world[Source code]
 
 Helpful links:
 
