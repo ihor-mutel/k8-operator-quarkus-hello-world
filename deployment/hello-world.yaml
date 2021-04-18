@@ -1,0 +1,10 @@
+apiVersion: example.com/v1alpha1
+kind: HelloWorld
+metadata:
+  name: hello-world-example
+spec:
+  name: hello-world
+  image: busybox
+  replicas: 3
+  data: |
+   Data is available
