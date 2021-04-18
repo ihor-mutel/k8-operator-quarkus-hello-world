@@ -71,7 +71,7 @@ public class PodWatcher {
 
                     log.info("Check if data is available in pod " + pod.getMetadata().getName());
 
-                    if (!logs.contains("Data is available")) {
+                    if (!logs.contains("Example of injected data")) {
                         log.info("Inject data into pod " + pod.getMetadata().getName());
                         newExecWatch(kubernetesClient, pod.getMetadata().getNamespace(), pod.getMetadata().getName(), spec.getData());
                     }
@@ -87,7 +87,7 @@ public class PodWatcher {
                             .withName(pod.getMetadata().getName())
                             .getLog();
 
-                    if (logs.contains("Data is available")) {
+                    if (logs.contains("Example of injected data")) {
 
                         log.info("Data is available in pod " + pod.getMetadata().getName());
 

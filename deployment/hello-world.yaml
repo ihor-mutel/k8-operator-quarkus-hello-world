@@ -7,4 +7,4 @@ spec:
   image: busybox
   replicas: 3
   data: |
-   Data is available
+   Example of injected data
