@@ -328,14 +328,12 @@ public class Main implements QuarkusApplication {
 }
 ----
 
-When pod is created operator fetches logs and
+When pod is created, operator fetches logs and
 checks if the data from custom object is present in the pod, in case if it is not present operator outputs data to a file in the pod.
 
 [,java]
 .PodWatcher.java
 ----
-
-/ ... /
 log.info("Get pod logs " + pod.getMetadata().getName());
 
 String logs = kubernetesClient.pods()
@@ -349,7 +347,6 @@ if (!logs.contains("Example of injected data")) {
     log.info("Inject data into pod " + podName);
     newExecWatch(kubernetesClient, namespace, podName, spec.getData());
 }
-/ ... /
 ----
 
 ----
@@ -361,11 +358,7 @@ After executing a command, the operator checks the log of the current pod  again
 .PodWatcher.java
 [,java]
 ----
-/ ... /
-
 kubernetesClient.apps().statefulSets().inNamespace(namespace).withName(name).scale(replicaSize + 1, true);
-
-/ ... /
 ----
 
 Full code of PodWatcher
