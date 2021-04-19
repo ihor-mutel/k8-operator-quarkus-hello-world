@@ -9,15 +9,15 @@ It allows transferring of operational knowledge of the human operators into soft
 
 ==== Why java?
 
-Being able to develop operators in Java can bring a lot of benefits for companies and individuals that are focused mainly on the Java stack. At the same time, Quarkus with the main focus on cloud-native, and microservice solutions looks like a right fit for building an operator. Operator SDK also has neat features such as generating all the necessary Kubernetes resources for operator deployment in the cluster.
-
-
-Java kubernetes-client supports multiple operations: such as creating resources, patching. copying files,  executing commands, fetching logs and
+* Being able to develop operators in Java can bring a lot of benefits for companies and individuals that are focused mainly on the Java stack.
+* Quarkus with the main focus on cloud-native, and microservice solutions looks like a right fit for building an operator.
+* Operator SDK also has neat features such as generating Kubernetes resources for operator deployment in the cluster and creating custom resource definition yaml files based on the Java code.
+* Java kubernetes-client supports multiple operations: such as creating resources, patching. copying files,  executing commands, fetching logs and
  https://github.com/fabric8io/kubernetes-client/tree/master/kubernetes-examples/src/main/java/io/fabric8/kubernetes/examples[many others].
 
 ==== Hello world operator
 
-An Operator can be used for various reasons and one of the most common tasks of the operator is to manage database clusters, and performing operations like preparing database schemas, restoring data backups, etc. This simple hello world operator demonstrates how to create a replica set and make sure that the data is loaded into each pod and consumed by the application before creating new pods.
+An Operator can be used for various reasons and one of the most common tasks of the operator is to manage database clusters, and performing operations like preparing database schemas, restoring backups, etc. This simple hello world operator demonstrates how to create a stateful set and make sure that the data is loaded into each pod and consumed by the application before creating new pods.
 
 image::media/image-2021-04-18-22-56-52-151.png[width=40%, align="center"]
 
@@ -90,9 +90,9 @@ quarkus.kubernetes-client.master-url=http://127.0.0.1:8001/
 
 ===== Create a custom resource definition
 
-It is possible to extend the Kbernetes API with custom objects, in order to store and modify the desired object specification and state.
+It is possible to extend the Kubernetes API with custom resources, in order to store and modify the desired object specification and state.
 
-Based on the content of classes below application generates https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/[custom-resource-definitions] which can be used to create https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[custom-resources]. During the start application outputs yaml of custom resource definitions to a file _./target/kubernetes/kubernetes.yml_.
+Based on the content of classes below application generates https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/[custom-resource-definitions] which can be used to create https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[custom-resources]. During the start application outputs yaml of custom resource definitions to a file in the directory _./target/kubernetes/_.
 
 Create custom resource definition
 
@@ -127,7 +127,7 @@ public class HelloWorldSpec {
 }
 ----
 
-The status fields of the custom resource.
+The status fields of the custom resource
 
 .HelloWorldStatus.java
 [,java]
@@ -331,6 +331,27 @@ public class Main implements QuarkusApplication {
 When pod is created operator fetches logs and
 checks if the data from custom object is present in the pod, in case if it is not present operator outputs data to a file in the pod.
 
+[,java]
+.PodWatcher.java
+----
+
+/ ... /
+log.info("Get pod logs " + pod.getMetadata().getName());
+
+String logs = kubernetesClient.pods()
+        .inNamespace(namespace)
+        .withName(podName)
+        .getLog();
+
+log.info("Check if data is available in pod " + pod.getMetadata().getName());
+
+if (!logs.contains("Example of injected data")) {
+    log.info("Inject data into pod " + podName);
+    newExecWatch(kubernetesClient, namespace, podName, spec.getData());
+}
+/ ... /
+----
+
 ----
 echo "Example of injected data" > /tmp/data.txt
 ----
@@ -338,111 +359,143 @@ echo "Example of injected data" > /tmp/data.txt
 After executing a command, the operator checks the log of the current pod  again. If the application has consumed the data, it add one pod to the replica set cluster and repeats this operation until all desired pods are present and contain the data.
 
 .PodWatcher.java
+[,java]
+----
+/ ... /
+
+kubernetesClient.apps().statefulSets().inNamespace(namespace).withName(name).scale(replicaSize + 1, true);
+
+/ ... /
+----
+
+Full code of PodWatcher
+
+.PodWatcher.java
 [%collapsible]
 ====
 [,java]
 ----
-void onStartup(@Observes StartupEvent startupEvent) throws IOException {
+public class PodWatcher {
 
-   List<Pod> pods = kubernetesClient.pods().inNamespace(namespace).list().getItems();
+    @ConfigProperty(name = "quarkus.kubernetes-client.namespace")
+    String namespace;
 
-   kubernetesClient.pods().watch(new Watcher<Pod>() {
+    ObjectMapper mapper = new ObjectMapper();
 
-       @Override
-       public void eventReceived(Action action, Pod pod) {
+    private final KubernetesClient kubernetesClient;
 
-           log.info("Received " + action + ", pod name " + pod.getMetadata().getName());
+    public PodWatcher(KubernetesClient kubernetesClient) {
+        this.kubernetesClient = kubernetesClient;
+    }
 
-           CustomResourceDefinitionContext helloWorldCustomResource = CustomResourceDefinitionContext.fromCustomResourceType(HelloWorld.class);
-           Map<String, Object> cr = kubernetesClient.customResource(helloWorldCustomResource).get(namespace, "hello-world-example");
-           HelloWorldSpec spec = mapper.convertValue(cr.get("spec"), HelloWorldSpec.class);
-
-           if (action == Action.ADDED) {
-
-               StatefulSet statefulset = kubernetesClient.apps().statefulSets().withName(spec.getName()).get();
-
-               try {
-                   Thread.sleep(10 * 1000L);
-               } catch (InterruptedException e) {
-                   e.printStackTrace();
-               }
-
-               log.info("Get pod logs " + pod.getMetadata().getName());
-
-               String logs = kubernetesClient.pods()
-                       .inNamespace(pod.getMetadata().getNamespace())
-                       .withName(pod.getMetadata().getName())
-                       .getLog();
-
-               log.info("Check if data is available in pod " + pod.getMetadata().getName());
-
-               if (!logs.contains("Example of injected data")) {
-                   log.info("Inject data into pod " + pod.getMetadata().getName());
-                   newExecWatch(kubernetesClient, pod.getMetadata().getNamespace(), pod.getMetadata().getName(), spec.getData());
-               }
-
-               try {
-                   Thread.sleep(10 * 1000L);
-               } catch (InterruptedException e) {
-                   e.printStackTrace();
-               }
-
-               logs = kubernetesClient.pods()
-                       .inNamespace(pod.getMetadata().getNamespace())
-                       .withName(pod.getMetadata().getName())
-                       .getLog();
-
-               if (logs.contains("Example of injected data")) {
-
-                   log.info("Data is available in pod " + pod.getMetadata().getName());
-
-                   if (spec.getReplicas() > statefulset.getStatus().getReplicas()) {
-
-                       log.info("Scale statefulset size, current size " + spec.getName());
-
-                       try {
-                           scaleStatefulSet(pod.getMetadata().getNamespace(), spec.getName(), statefulset.getStatus().getReplicas());
-                       } catch (Exception ex) {
-                           log.error(ex.getMessage());
-                       }
+    private final Logger log = LoggerFactory.getLogger(PodWatcher.class);
 
 
-                   }
-                   {
-                       log.info("Statefulset size: " + statefulset.getStatus().getReplicas() + ", desired: " + statefulset.getStatus().getReplicas());
-                   }
+
+    void onStartup(@Observes StartupEvent startupEvent) throws IOException {
+
+        List<Pod> pods = kubernetesClient.pods().inNamespace(namespace).list().getItems();
+
+        kubernetesClient.pods().watch(new Watcher<Pod>() {
+
+            @Override
+            public void eventReceived(Action action, Pod pod) {
+
+                log.info("Received " + action + ", pod name " + pod.getMetadata().getName());
+
+                CustomResourceDefinitionContext helloWorldCustomResource = CustomResourceDefinitionContext.fromCustomResourceType(HelloWorld.class);
+                Map<String, Object> cr = kubernetesClient.customResource(helloWorldCustomResource).get(namespace, "hello-world-example");
+                HelloWorldSpec spec = mapper.convertValue(cr.get("spec"), HelloWorldSpec.class);
+
+                if (action == Action.ADDED) {
+
+                    StatefulSet statefulset = kubernetesClient.apps().statefulSets().withName(spec.getName()).get();
+
+                    String podName = pod.getMetadata().getName();
+
+                    try {
+                        Thread.sleep(10 * 1000L);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+                    log.info("Get pod logs " + pod.getMetadata().getName());
+
+                    String logs = kubernetesClient.pods()
+                            .inNamespace(namespace)
+                            .withName(podName)
+                            .getLog();
+
+                    log.info("Check if data is available in pod " + pod.getMetadata().getName());
+
+                    if (!logs.contains("Example of injected data")) {
+                        log.info("Inject data into pod " + podName);
+                        newExecWatch(kubernetesClient, namespace, podName, spec.getData());
+                    }
+
+                    try {
+                        Thread.sleep(10 * 1000L);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+                    logs = kubernetesClient.pods()
+                            .inNamespace(pod.getMetadata().getNamespace())
+                            .withName(pod.getMetadata().getName())
+                            .getLog();
+
+                    if (logs.contains("Example of injected data")) {
+
+                        log.info("Data is available in pod " + pod.getMetadata().getName());
+
+                        if (spec.getReplicas() > statefulset.getStatus().getReplicas()) {
+
+                            log.info("Scale statefulset size, current size " + spec.getName());
+
+                            try {
+                                scaleStatefulSet(namespace, spec.getName(), statefulset.getStatus().getReplicas());
+                            } catch (Exception ex) {
+                                log.error(ex.getMessage());
+                            }
 
 
-               }
-
-           }
-
-       }
-
-       @Override
-       public void onClose(WatcherException e) {
-
-       }
-   });
+                        }
+                        {
+                            log.info("Statefulset size: " + statefulset.getStatus().getReplicas() + ", desired: " + statefulset.getStatus().getReplicas());
+                        }
 
 
-}
+                    }
+
+                }
+
+            }
+
+            @Override
+            public void onClose(WatcherException e) {
+
+            }
+        });
 
 
-private ExecWatch newExecWatch(KubernetesClient client, String namespace, String podName, String data) {
-   return client.pods().inNamespace(namespace).withName(podName)
-           .readingInput(System.in)
-           .writingOutput(System.out)
-           .writingError(System.err)
-           .withTTY()
-           .usingListener(new SimpleListener())
-           .exec("sh", "-c", "echo \"" + data + "\" > /tmp/data.txt");
-}
+    }
 
-void scaleStatefulSet(String namespace, String name, int replicaSize) {
+    private ExecWatch newExecWatch(KubernetesClient client, String namespace, String podName, String data) {
+        return client.pods().inNamespace(namespace).withName(podName)
+                .readingInput(System.in)
+                .writingOutput(System.out)
+                .writingError(System.err)
+                .withTTY()
+                .usingListener(new SimpleListener())
+                .exec("sh", "-c", "echo \"" + data + "\" > /tmp/data.txt");
+    }
 
-   log.info("Scale statefulset " + name);
-   kubernetesClient.apps().statefulSets().inNamespace(namespace).withName(name).scale(replicaSize + 1, true);
+    void scaleStatefulSet(String namespace, String name, int replicaSize) {
+
+        log.info("Scale statefulset " + name);
+        kubernetesClient.apps().statefulSets().inNamespace(namespace).withName(name).scale(replicaSize + 1, true);
+
+    }
 
 }
 ----

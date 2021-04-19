@@ -56,6 +56,8 @@ public class PodWatcher {
 
                     StatefulSet statefulset = kubernetesClient.apps().statefulSets().withName(spec.getName()).get();
 
+                    String podName = pod.getMetadata().getName();
+
                     try {
                         Thread.sleep(10 * 1000L);
                     } catch (InterruptedException e) {
@@ -65,15 +67,15 @@ public class PodWatcher {
                     log.info("Get pod logs " + pod.getMetadata().getName());
 
                     String logs = kubernetesClient.pods()
-                            .inNamespace(pod.getMetadata().getNamespace())
-                            .withName(pod.getMetadata().getName())
+                            .inNamespace(namespace)
+                            .withName(podName)
                             .getLog();
 
                     log.info("Check if data is available in pod " + pod.getMetadata().getName());
 
                     if (!logs.contains("Example of injected data")) {
-                        log.info("Inject data into pod " + pod.getMetadata().getName());
-                        newExecWatch(kubernetesClient, pod.getMetadata().getNamespace(), pod.getMetadata().getName(), spec.getData());
+                        log.info("Inject data into pod " + podName);
+                        newExecWatch(kubernetesClient, namespace, podName, spec.getData());
                     }
 
                     try {
@@ -96,7 +98,7 @@ public class PodWatcher {
                             log.info("Scale statefulset size, current size " + spec.getName());
 
                             try {
-                                scaleStatefulSet(pod.getMetadata().getNamespace(), spec.getName(), statefulset.getStatus().getReplicas());
+                                scaleStatefulSet(namespace, spec.getName(), statefulset.getStatus().getReplicas());
                             } catch (Exception ex) {
                                 log.error(ex.getMessage());
                             }
