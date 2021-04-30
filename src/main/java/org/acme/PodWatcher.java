@@ -52,7 +52,7 @@ public class PodWatcher {
                 Map<String, Object> cr = kubernetesClient.customResource(helloWorldCustomResource).get(namespace, "hello-world-example");
                 HelloWorldSpec spec = mapper.convertValue(cr.get("spec"), HelloWorldSpec.class);
 
-                if (action == Action.ADDED) {
+                if (action == Action.ADDED && pod.getMetadata().getName().contains(spec.getName())) {
 
                     StatefulSet statefulset = kubernetesClient.apps().statefulSets().withName(spec.getName()).get();
 
