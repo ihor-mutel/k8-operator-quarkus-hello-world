@@ -5,6 +5,8 @@ metadata:
 spec:
   name: hello-world
   image: busybox
-  replicas: 3
+  replicas: 4
   data: |
    Example of injected data
+status:
+  readyReplicas: 0
