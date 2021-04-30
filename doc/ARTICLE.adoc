@@ -698,7 +698,7 @@ spec:
 
 After some time we can validate that the replica set is deployed, and the data is injected into each pod.
 
-image::image-2021-04-30-15-48-45-405.png[]
+image::media/image-2021-04-30-15-48-45-405.png[]
 
 https://github.com/web1991t/k8-operator-quarkus-hello-world[Source code]
 
