@@ -3,7 +3,7 @@
 ===== TL;DR
 
 Even though Kubernetes provides extensive support for multiple container management operations, it doesn't cover all potential cases related to application management. Some applications need the manual intervention of a human operator. An kubernetes operator is an application that runs in the cluster and manages resources.
-It allows transferring of operational knowledge of the human operators into software components. Operators can be used for multiple purposes such as restoring data, creating cloud resources, resilience testing, and many others.
+It allows transferring of operational knowledge of the human operator into software components. Operators can be used for multiple purposes such as restoring data, creating cloud resources, resilience testing, and many others.
 
 
 
@@ -11,13 +11,13 @@ It allows transferring of operational knowledge of the human operators into soft
 
 * Being able to develop operators in Java can bring a lot of benefits for companies and individuals that are focused mainly on the Java stack.
 * Quarkus with the main focus on cloud-native, and microservice solutions looks like a good fit for building an operator.
-* Operator SDK also has neat features such as generating Kubernetes resources for operator deployment in the cluster and creating custom resource definition yaml files based on the Java code.
-* Java kubernetes-client supports multiple operations: such as creating resources, patching. copying files,  executing commands, fetching logs and
+* Operator SDK also has neat features such as generating Kubernetes resources for operator deployment and creating custom resource definition yaml files based on the Java code.
+* Java kubernetes-client supports multiple operations: such as creating resources, patching, copying files,  executing commands, fetching logs and
  https://github.com/fabric8io/kubernetes-client/tree/master/kubernetes-examples/src/main/java/io/fabric8/kubernetes/examples[many others].
 
 ==== Hello world operator
 
-An Operator can be used for various reasons and one of the most common tasks of the operator is to manage database clusters, preparing database schemas, restoring backups, etc. This simple hello world operator demonstrates how to create a stateful set  via kubernetes API and make sure that the data is loaded into each pod and consumed by the application before creating new pods.
+An Operator can be used for various reasons and one of the most common tasks of an operator is to manage database clusters, preparing database schemas, restoring backups, etc. This simple hello world operator demonstrates how to create a stateful set  via kubernetes API and make sure that the data is loaded into each pod and consumed by the application before creating new pods.
 
 image::media/image-2021-04-18-22-56-52-151.png[width=40%, align="center"]
 
@@ -353,7 +353,7 @@ if (!logs.contains("Example of injected data")) {
 echo "Example of injected data" > /tmp/data.txt
 ----
 
-After executing a command, the operator checks the log of the current pod  again. If the application has consumed the data, it add one pod to the replica set cluster and repeats this operation until all desired pods are present and contain the data.
+After executing a command, the operator checks the log of the current pod  again. If the application has consumed the data, it adds one pod to the replica set cluster and repeats this operation until all desired pods are present and contain the data.
 
 .PodWatcher.java
 [,java]
